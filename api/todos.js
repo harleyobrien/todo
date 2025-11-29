@@ -14,7 +14,7 @@ export default async function handler(req, res) {
             const { text } = req.body;
             if (!text) return res.status(400).json({ error: 'Text is required' });
 
-            const { rows } = await db.sql`
+            const { rows } = await sql`
         INSERT INTO todos (text) VALUES (${text})
         RETURNING *
       `;
@@ -30,7 +30,7 @@ export default async function handler(req, res) {
 
             if (!todoId) return res.status(400).json({ error: 'ID is required' });
 
-            const { rows } = await db.sql`
+            const { rows } = await sql`
             UPDATE todos SET completed = ${completed} WHERE id = ${todoId} RETURNING *
         `;
             return res.status(200).json(rows[0]);
