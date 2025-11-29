@@ -1,4 +1,4 @@
-import { db } from './db.js';
+import { sql } from '@vercel/postgres';
 
 export default async function handler(req, res) {
     const { method } = req;
@@ -6,7 +6,7 @@ export default async function handler(req, res) {
 
     try {
         if (method === 'GET') {
-            const { rows } = await db.sql`SELECT * FROM todos ORDER BY created_at DESC`;
+            const { rows } = await sql`SELECT * FROM todos ORDER BY created_at DESC`;
             return res.status(200).json(rows);
         }
 
@@ -40,7 +40,7 @@ export default async function handler(req, res) {
             const todoId = req.query.id || req.body.id;
             if (!todoId) return res.status(400).json({ error: 'ID is required' });
 
-            await db.sql`DELETE FROM todos WHERE id = ${todoId}`;
+            await sql`DELETE FROM todos WHERE id = ${todoId}`;
             return res.status(200).json({ message: 'Deleted' });
         }
 
