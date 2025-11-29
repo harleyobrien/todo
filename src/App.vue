@@ -1,12 +1,25 @@
 <script setup>
-import { ref, onMounted } from 'vue';
+import { ref, onMounted, computed } from 'vue';
 import { todoService } from './services/todo';
 import TodoItem from './components/TodoItem.vue';
+import draggable from 'vuedraggable';
 
 const todos = ref([]);
 const newTodo = ref('');
 const loading = ref(true);
 const error = ref(null);
+
+const pendingTodos = computed({
+  get: () => todos.value.filter(t => !t.completed),
+  set: (val) => {
+    // When dragging updates pending list, we need to reconstruct the full list
+    // preserving completed items.
+    const completed = todos.value.filter(t => t.completed);
+    todos.value = [...val, ...completed];
+  }
+});
+
+const completedTodos = computed(() => todos.value.filter(t => t.completed));
 
 const fetchTodos = async () => {
   try {
@@ -28,7 +41,7 @@ const addTodo = async () => {
   
   try {
     const todo = await todoService.create(text);
-    todos.value.unshift(todo);
+    todos.value.push(todo); // Add to end (or beginning depending on desired UX, API puts at end)
   } catch (e) {
     error.value = 'Failed to add todo';
     newTodo.value = text; // Restore on error
@@ -59,6 +72,32 @@ const deleteTodo = async (id) => {
   }
 };
 
+const updateTodo = async (id, text) => {
+  const todo = todos.value.find(t => t.id === id);
+  if (!todo) return;
+  
+  const originalText = todo.text;
+  todo.text = text; // Optimistic update
+  
+  try {
+    await todoService.update(id, { text });
+  } catch (e) {
+    todo.text = originalText; // Revert
+    error.value = 'Failed to update todo';
+  }
+};
+
+const onDragEnd = async () => {
+  // Save the new order of pending todos
+  try {
+    // We only care about the order of pending items for now
+    await todoService.updateOrder(pendingTodos.value);
+  } catch (e) {
+    error.value = 'Failed to save order';
+    console.error(e);
+  }
+};
+
 onMounted(() => {
   fetchTodos();
 });
@@ -68,7 +107,7 @@ onMounted(() => {
   <div class="app-container">
     <header>
       <h1>Tasks</h1>
-      <p class="subtitle">{{ todos.filter(t => !t.completed).length }} remaining</p>
+      <p class="subtitle">{{ pendingTodos.length }} remaining</p>
     </header>
 
     <div class="input-group">
@@ -90,15 +129,38 @@ onMounted(() => {
     </div>
 
     <div class="todo-list" v-if="!loading">
-      <TransitionGroup name="list">
-        <TodoItem 
-          v-for="todo in todos" 
-          :key="todo.id" 
-          :todo="todo" 
-          @toggle="toggleTodo"
-          @delete="deleteTodo"
-        />
-      </TransitionGroup>
+      <!-- Pending Tasks (Sortable) -->
+      <draggable 
+        v-model="pendingTodos" 
+        item-key="id" 
+        @end="onDragEnd"
+        class="list-group"
+        ghost-class="ghost"
+      >
+        <template #item="{ element }">
+          <TodoItem 
+            :todo="element" 
+            @toggle="toggleTodo"
+            @delete="deleteTodo"
+            @update="updateTodo"
+          />
+        </template>
+      </draggable>
+
+      <!-- Completed Tasks (Static) -->
+      <div v-if="completedTodos.length > 0" class="completed-section">
+        <h3>Completed</h3>
+        <TransitionGroup name="list">
+          <TodoItem 
+            v-for="todo in completedTodos" 
+            :key="todo.id" 
+            :todo="todo" 
+            @toggle="toggleTodo"
+            @delete="deleteTodo"
+            @update="updateTodo"
+          />
+        </TransitionGroup>
+      </div>
       
       <div v-if="todos.length === 0" class="empty-state">
         <p>No tasks yet. Add one above!</p>
@@ -114,7 +176,7 @@ onMounted(() => {
 <style scoped>
 .app-container {
   width: 100%;
-  max-width: 600px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 2rem;
 }
@@ -250,4 +312,21 @@ input:focus {
   position: absolute;
   width: 100%;
 }
-</style>
+
+.ghost {
+  opacity: 0.5;
+  background: rgba(34, 197, 94, 0.2);
+}
+
+.completed-section {
+  margin-top: 3rem;
+  border-top: 1px solid var(--border-color);
+  padding-top: 2rem;
+}
+
+.completed-section h3 {
+  color: var(--text-secondary);
+  font-size: 1.2rem;
+  margin-bottom: 1rem;
+  font-weight: 600;
+}</style>

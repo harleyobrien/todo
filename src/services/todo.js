@@ -33,5 +33,15 @@ export const todoService = {
         });
         if (!res.ok) throw new Error('Failed to delete todo');
         return res.json();
+    },
+
+    async updateOrder(todos) {
+        const res = await fetch(API_URL, {
+            method: 'PUT',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ todos }),
+        });
+        if (!res.ok) throw new Error('Failed to update order');
+        return res.json();
     }
 };

@@ -8,13 +8,41 @@ const props = defineProps({
   }
 });
 
-const emit = defineEmits(['toggle', 'delete']);
+const emit = defineEmits(['toggle', 'delete', 'update']);
 
 const isDeleting = ref(false);
+const isEditing = ref(false);
+const editText = ref('');
 
 const handleDelete = () => {
   isDeleting.value = true;
   emit('delete', props.todo.id);
+};
+
+const startEdit = () => {
+  if (props.todo.completed) return; // Don't allow editing completed tasks
+  isEditing.value = true;
+  editText.value = props.todo.text;
+};
+
+const saveEdit = () => {
+  if (editText.value.trim() && editText.value !== props.todo.text) {
+    emit('update', props.todo.id, editText.value.trim());
+  }
+  isEditing.value = false;
+};
+
+const cancelEdit = () => {
+  isEditing.value = false;
+  editText.value = '';
+};
+
+const handleKeydown = (e) => {
+  if (e.key === 'Enter') {
+    saveEdit();
+  } else if (e.key === 'Escape') {
+    cancelEdit();
+  }
 };
 </script>
 
@@ -29,7 +57,21 @@ const handleDelete = () => {
       <span class="checkmark"></span>
     </label>
     
-    <span class="todo-text">{{ todo.text }}</span>
+    <input 
+      v-if="isEditing"
+      v-model="editText"
+      @blur="saveEdit"
+      @keydown="handleKeydown"
+      class="edit-input"
+      ref="editInput"
+      autofocus
+    >
+    <span 
+      v-else
+      class="todo-text" 
+      @click="startEdit"
+      :class="{ 'editable': !todo.completed }"
+    >{{ todo.text }}</span>
     
     <button class="delete-btn" @click="handleDelete" aria-label="Delete todo">
       <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
@@ -42,23 +84,36 @@ const handleDelete = () => {
   display: flex;
   align-items: center;
   padding: 1rem;
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(34, 197, 94, 0.1); /* Green tint for pending */
   border-radius: 12px;
   margin-bottom: 0.75rem;
   transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid rgba(34, 197, 94, 0.2);
   backdrop-filter: blur(10px);
+  cursor: grab;
+}
+
+.todo-item:active {
+  cursor: grabbing;
 }
 
 .todo-item:hover {
   transform: translateY(-2px);
-  background: rgba(255, 255, 255, 0.08);
-  border-color: rgba(255, 255, 255, 0.2);
+  background: rgba(34, 197, 94, 0.15);
+  border-color: rgba(34, 197, 94, 0.3);
   box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
 }
 
 .todo-item.completed {
-  opacity: 0.7;
+  opacity: 0.8;
+  background: rgba(239, 68, 68, 0.1); /* Red tint for completed */
+  border-color: rgba(239, 68, 68, 0.2);
+  cursor: default;
+}
+
+.todo-item.completed:hover {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: rgba(239, 68, 68, 0.3);
 }
 
 .todo-item.completed .todo-text {
@@ -72,6 +127,26 @@ const handleDelete = () => {
   font-size: 1rem;
   color: var(--text-primary);
   transition: color 0.2s;
+}
+
+.todo-text.editable {
+  cursor: text;
+}
+
+.todo-text.editable:hover {
+  opacity: 0.8;
+}
+
+.edit-input {
+  flex: 1;
+  margin: 0 1rem;
+  font-size: 1rem;
+  color: var(--text-primary);
+  background: rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--accent-color);
+  border-radius: 6px;
+  padding: 0.25rem 0.5rem;
+  outline: none;
 }
 
 /* Custom Checkbox */
@@ -97,19 +172,19 @@ const handleDelete = () => {
   left: 0;
   height: 22px;
   width: 22px;
-  background-color: rgba(255, 255, 255, 0.1);
+  background-color: rgba(255, 255, 255, 0.05);
   border-radius: 6px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
+  border: 2px solid #22c55e; /* Green for pending */
   transition: all 0.2s;
 }
 
 .checkbox-container:hover input ~ .checkmark {
-  border-color: var(--accent-color);
+  border-color: #16a34a;
 }
 
 .checkbox-container input:checked ~ .checkmark {
-  background-color: var(--accent-color);
-  border-color: var(--accent-color);
+  background-color: var(--danger-color); /* Red for completed */
+  border-color: var(--danger-color);
 }
 
 .checkmark:after {
